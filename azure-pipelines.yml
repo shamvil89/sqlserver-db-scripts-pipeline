@@ -1,11 +1,5 @@
 name: sql-validation-$(Date:yyyyMMdd)$(Rev:.r)
 
-parameters:
-  - name: agentPoolName
-    displayName: Self-hosted agent pool name
-    type: string
-    default: Default
-
 trigger:
   branches:
     include:
@@ -31,8 +25,9 @@ pr:
       - docs/**
 
 pool:
-  name: ${{ parameters.agentPoolName }}
+  name: Shamvil-pool
   demands:
+    - Agent.Name -equals shamvil
     - Agent.OS -equals Windows_NT
 
 variables:

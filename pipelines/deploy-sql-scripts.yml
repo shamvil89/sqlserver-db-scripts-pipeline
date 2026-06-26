@@ -4,11 +4,6 @@ trigger: none
 pr: none
 
 parameters:
-  - name: agentPoolName
-    displayName: Self-hosted agent pool name
-    type: string
-    default: Default
-
   - name: environmentName
     displayName: Deployment environment
     type: string
