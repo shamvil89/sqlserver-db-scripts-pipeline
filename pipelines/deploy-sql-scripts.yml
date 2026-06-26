@@ -50,6 +50,11 @@ stages:
     jobs:
       - deployment: ExecuteSqlScripts
         displayName: Execute scripts against SQL Server
+        pool:
+          name: Shamvil-pool
+          demands:
+            - Agent.Name -equals shamvil
+            - Agent.OS -equals Windows_NT
         environment: ${{ parameters.environmentName }}
         strategy:
           runOnce:

@@ -40,6 +40,11 @@ stages:
     jobs:
       - job: ValidateSqlScripts
         displayName: Dry-run script discovery and artifacts
+        pool:
+          name: Shamvil-pool
+          demands:
+            - Agent.Name -equals shamvil
+            - Agent.OS -equals Windows_NT
         steps:
           - checkout: self
 
