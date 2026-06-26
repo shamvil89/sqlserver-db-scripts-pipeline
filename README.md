@@ -79,6 +79,7 @@ If `SqlUsername` is blank, the runner uses Windows integrated authentication. Us
 
 When manually running `pipelines/deploy-sql-scripts.yml`, set:
 
+- `sqlServerName`: SQL Server name to connect to; use `.` for the default local SQL Server instance on the self-hosted agent
 - `environmentName`: Azure DevOps environment name, such as `dev`, `test`, or `prod`
 - `targetDatabases`: comma-separated database names, such as `AppDb,AuditDb`
 - `dryRun`: validates script discovery and artifact creation without opening SQL connections

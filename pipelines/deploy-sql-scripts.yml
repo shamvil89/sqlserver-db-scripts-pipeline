@@ -4,6 +4,11 @@ trigger: none
 pr: none
 
 parameters:
+  - name: sqlServerName
+    displayName: SQL Server to connect to
+    type: string
+    default: .
+
   - name: environmentName
     displayName: Deployment environment
     type: string
@@ -54,6 +59,7 @@ stages:
 
                 - template: /pipelines/templates/run-sql-scripts.yml
                   parameters:
+                    sqlServerName: ${{ parameters.sqlServerName }}
                     targetDatabases: ${{ parameters.targetDatabases }}
                     dryRun: ${{ parameters.dryRun }}
                     continueOnError: ${{ parameters.continueOnError }}

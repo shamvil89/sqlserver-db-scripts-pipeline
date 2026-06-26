@@ -1,4 +1,8 @@
 parameters:
+  - name: sqlServerName
+    type: string
+    default: ''
+
   - name: targetDatabases
     type: string
     default: SampleDatabase
@@ -71,11 +75,15 @@ steps:
         }
 
         $requiresSqlServer = [System.Convert]::ToBoolean('${{ parameters.requireSqlServer }}')
-        $serverName = $env:SQL_SERVER
+        $serverName = $env:SQL_SERVER_PARAMETER
+
+        if ([string]::IsNullOrWhiteSpace($serverName)) {
+          $serverName = $env:SQL_SERVER
+        }
 
         if ([string]::IsNullOrWhiteSpace($serverName) -or $serverName -like '$(*') {
           if ($requiresSqlServer) {
-            throw 'Pipeline variable SqlServerName is required.'
+            throw 'SQL Server is required. Set the sqlServerName pipeline parameter or the SqlServerName pipeline variable.'
           }
 
           $serverName = 'dry-run.local'
@@ -114,6 +122,7 @@ steps:
 
         & $toolPath @runnerArgs
     env:
+      SQL_SERVER_PARAMETER: ${{ parameters.sqlServerName }}
       SQL_SERVER: $(SqlServerName)
       SQL_USERNAME: $(SqlUsername)
       SQL_PASSWORD: $(SqlPassword)
