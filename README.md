@@ -34,6 +34,8 @@ Create these Azure DevOps pipeline definitions:
 | Validate SQL scripts | `azure-pipelines.yml` | Runs on `main` and pull requests |
 | Deploy SQL scripts | `pipelines/deploy-sql-scripts.yml` | Manual only |
 
+Both pipelines use a self-hosted Windows agent pool through the `agentPoolName` parameter. The default is `Default`; change it to the exact Azure DevOps pool name if your self-hosted pool uses another name.
+
 The validation pipeline runs the deployment runner in dry-run mode. It checks script discovery, execution order, `GO` batch splitting, and artifact creation without opening a SQL connection.
 
 The deployment pipeline is manual and uses an Azure DevOps deployment environment. Configure approvals and checks on that environment when production deployments need a gate.
@@ -71,6 +73,7 @@ If `SqlUsername` is blank, the runner uses Windows integrated authentication. Us
 
 When manually running `pipelines/deploy-sql-scripts.yml`, set:
 
+- `agentPoolName`: Azure DevOps self-hosted Windows agent pool name
 - `environmentName`: Azure DevOps environment name, such as `dev`, `test`, or `prod`
 - `targetDatabases`: comma-separated database names, such as `AppDb,AuditDb`
 - `dryRun`: validates script discovery and artifact creation without opening SQL connections

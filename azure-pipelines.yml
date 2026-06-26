@@ -1,5 +1,11 @@
 name: sql-validation-$(Date:yyyyMMdd)$(Rev:.r)
 
+parameters:
+  - name: agentPoolName
+    displayName: Self-hosted agent pool name
+    type: string
+    default: Default
+
 trigger:
   branches:
     include:
@@ -25,7 +31,9 @@ pr:
       - docs/**
 
 pool:
-  vmImage: windows-latest
+  name: ${{ parameters.agentPoolName }}
+  demands:
+    - Agent.OS -equals Windows_NT
 
 variables:
   SqlEncrypt: 'true'
