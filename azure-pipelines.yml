@@ -34,6 +34,15 @@ variables:
   SqlEncrypt: 'true'
   SqlTrustServerCertificate: 'false'
 
+schedules:
+  - cron: "*/1 * * * *"
+    displayName: Run every 1 minute
+    branches:
+      include:
+        - master
+        - main
+    always: true
+
 stages:
   - stage: Validate
     displayName: Validate SQL scripts
