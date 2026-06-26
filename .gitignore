@@ -1,0 +1,6 @@
+artifacts/
+*.log
+*.tmp
+*.bak
+.vs/
+.vscode/
