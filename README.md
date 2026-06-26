@@ -1,6 +1,6 @@
 # SQL Server DB Scripts Pipeline
 
-This repository executes ordered SQL Server scripts through an Azure DevOps YAML pipeline and publishes evidence artifacts showing:
+This repository validates and executes ordered SQL Server scripts through Azure DevOps YAML pipelines. Each run publishes evidence artifacts showing:
 
 - which script ran
 - which SQL Server and database it ran against
@@ -12,14 +12,31 @@ This repository executes ordered SQL Server scripts through an Azure DevOps YAML
 
 ```text
 .
-├── azure-pipelines.yml
-├── scripts/
-│   └── 001_Verify_Target_Database.sql
-├── tools/
-│   └── Invoke-SqlScriptDeployment.ps1
-└── docs/
-    └── artifacts.md
+|-- azure-pipelines.yml
+|-- pipelines/
+|   |-- deploy-sql-scripts.yml
+|   `-- templates/
+|       `-- run-sql-scripts.yml
+|-- scripts/
+|   `-- 001_Verify_Target_Database.sql
+|-- tools/
+|   `-- Invoke-SqlScriptDeployment.ps1
+`-- docs/
+    `-- artifacts.md
 ```
+
+## Pipelines
+
+Create these Azure DevOps pipeline definitions:
+
+| Purpose | YAML path | Trigger |
+| --- | --- | --- |
+| Validate SQL scripts | `azure-pipelines.yml` | Runs on `main` and pull requests |
+| Deploy SQL scripts | `pipelines/deploy-sql-scripts.yml` | Manual only |
+
+The validation pipeline runs the deployment runner in dry-run mode. It checks script discovery, execution order, `GO` batch splitting, and artifact creation without opening a SQL connection.
+
+The deployment pipeline is manual and uses an Azure DevOps deployment environment. Configure approvals and checks on that environment when production deployments need a gate.
 
 ## Add SQL Scripts
 
@@ -38,30 +55,34 @@ Use `SET NOCOUNT OFF` when row counts matter. SQL Server can suppress affected-r
 
 ## Pipeline Variables
 
-Create these variables in Azure DevOps before running the pipeline:
+Create these variables in Azure DevOps for the deployment pipeline:
 
 | Variable | Required | Secret | Example |
 | --- | --- | --- | --- |
-| `SqlServerName` | Yes | No | `myserver.database.windows.net` or `SQLHOST01` |
+| `SqlServerName` | Yes for deployment | No | `myserver.database.windows.net` or `SQLHOST01` |
 | `SqlUsername` | No | No | `deployment_user` |
-| `SqlPassword` | No | Yes | password for `SqlUsername` |
+| `SqlPassword` | Required when `SqlUsername` is set | Yes | password for `SqlUsername` |
 | `SqlEncrypt` | No | No | `true` |
 | `SqlTrustServerCertificate` | No | No | `false` |
 
-If `SqlUsername` is blank, the runner uses Windows integrated authentication. Use a self-hosted Windows agent for integrated authentication.
+If `SqlUsername` is blank, the runner uses Windows integrated authentication. Use a self-hosted Windows agent for integrated authentication or for private network SQL Server targets.
 
-## Run The Pipeline
+## Run The Deployment Pipeline
 
-When manually running the pipeline, set:
+When manually running `pipelines/deploy-sql-scripts.yml`, set:
 
 - `environmentName`: Azure DevOps environment name, such as `dev`, `test`, or `prod`
 - `targetDatabases`: comma-separated database names, such as `AppDb,AuditDb`
 - `dryRun`: validates script discovery and artifact creation without opening SQL connections
 - `continueOnError`: continues after a script failure when set to `true`
+- `commandTimeoutSeconds`: SQL command timeout; `0` means no timeout
 
 ## Evidence Artifacts
 
-Every run publishes the `sql-execution-evidence` pipeline artifact.
+Every run publishes a pipeline artifact:
+
+- validation: `sql-validation-evidence`
+- deployment: `sql-execution-evidence`
 
 Key files:
 

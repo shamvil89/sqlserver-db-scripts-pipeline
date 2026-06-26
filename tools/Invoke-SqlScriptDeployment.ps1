@@ -138,8 +138,9 @@ $targetDatabases = @(
     $Database |
         ForEach-Object { $_ -split ',' } |
         ForEach-Object { $_.Trim() } |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-) | Select-Object -Unique
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -Unique
+)
 
 if ($targetDatabases.Count -eq 0) {
     throw 'At least one target database must be supplied.'

@@ -1,0 +1,60 @@
+name: sql-deploy-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: environmentName
+    displayName: Deployment environment
+    type: string
+    default: dev
+
+  - name: targetDatabases
+    displayName: Target databases, comma separated
+    type: string
+    default: SampleDatabase
+
+  - name: dryRun
+    displayName: Validate without executing SQL
+    type: boolean
+    default: false
+
+  - name: continueOnError
+    displayName: Continue after a script failure
+    type: boolean
+    default: false
+
+  - name: commandTimeoutSeconds
+    displayName: SQL command timeout in seconds, 0 means no timeout
+    type: number
+    default: 0
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  SqlEncrypt: 'true'
+  SqlTrustServerCertificate: 'false'
+
+stages:
+  - stage: Deploy
+    displayName: Deploy SQL scripts
+    jobs:
+      - deployment: ExecuteSqlScripts
+        displayName: Execute scripts against SQL Server
+        environment: ${{ parameters.environmentName }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - template: /pipelines/templates/run-sql-scripts.yml
+                  parameters:
+                    targetDatabases: ${{ parameters.targetDatabases }}
+                    dryRun: ${{ parameters.dryRun }}
+                    continueOnError: ${{ parameters.continueOnError }}
+                    commandTimeoutSeconds: ${{ parameters.commandTimeoutSeconds }}
+                    artifactName: sql-execution-evidence
+                    artifactRoot: '$(Build.ArtifactStagingDirectory)\sql-execution'
+                    requireSqlServer: true

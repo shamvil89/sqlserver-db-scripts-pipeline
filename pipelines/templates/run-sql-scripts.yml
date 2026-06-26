@@ -1,0 +1,129 @@
+parameters:
+  - name: targetDatabases
+    type: string
+    default: SampleDatabase
+
+  - name: dryRun
+    type: boolean
+    default: true
+
+  - name: continueOnError
+    type: boolean
+    default: false
+
+  - name: commandTimeoutSeconds
+    type: number
+    default: 0
+
+  - name: scriptPath
+    type: string
+    default: '$(Build.SourcesDirectory)\scripts'
+
+  - name: toolPath
+    type: string
+    default: '$(Build.SourcesDirectory)\tools\Invoke-SqlScriptDeployment.ps1'
+
+  - name: artifactRoot
+    type: string
+    default: '$(Build.ArtifactStagingDirectory)\sql-execution'
+
+  - name: artifactName
+    type: string
+    default: sql-execution-evidence
+
+  - name: requireSqlServer
+    type: boolean
+    default: true
+
+steps:
+  - task: PowerShell@2
+    displayName: Run SQL script deployment
+    inputs:
+      targetType: inline
+      script: |
+        $ErrorActionPreference = 'Stop'
+
+        function Convert-BoolSetting {
+          param(
+            [string]$Value,
+            [bool]$Default
+          )
+
+          if ([string]::IsNullOrWhiteSpace($Value) -or $Value -like '$(*') {
+            return $Default
+          }
+
+          return [System.Convert]::ToBoolean($Value)
+        }
+
+        $artifactRoot = '${{ parameters.artifactRoot }}'
+        $scriptPath = '${{ parameters.scriptPath }}'
+        $toolPath = '${{ parameters.toolPath }}'
+
+        New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
+
+        if (-not (Test-Path -LiteralPath $scriptPath)) {
+          throw "SQL script path was not found: '$scriptPath'."
+        }
+
+        if (-not (Test-Path -LiteralPath $toolPath)) {
+          throw "SQL deployment runner was not found: '$toolPath'."
+        }
+
+        $requiresSqlServer = [System.Convert]::ToBoolean('${{ parameters.requireSqlServer }}')
+        $serverName = $env:SQL_SERVER
+
+        if ([string]::IsNullOrWhiteSpace($serverName) -or $serverName -like '$(*') {
+          if ($requiresSqlServer) {
+            throw 'Pipeline variable SqlServerName is required.'
+          }
+
+          $serverName = 'dry-run.local'
+        }
+
+        $databaseList = @(
+          '${{ parameters.targetDatabases }}'.Split(',') |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )
+
+        if ($databaseList.Count -eq 0) {
+          throw 'At least one target database must be supplied.'
+        }
+
+        $runnerArgs = @{
+          ServerInstance = $serverName
+          Database = $databaseList
+          ScriptPath = $scriptPath
+          ArtifactPath = $artifactRoot
+          Encrypt = Convert-BoolSetting -Value $env:SQL_ENCRYPT -Default $true
+          TrustServerCertificate = Convert-BoolSetting -Value $env:SQL_TRUST_SERVER_CERTIFICATE -Default $false
+          CommandTimeoutSeconds = [int]'${{ parameters.commandTimeoutSeconds }}'
+          DryRun = [System.Convert]::ToBoolean('${{ parameters.dryRun }}')
+          ContinueOnError = [System.Convert]::ToBoolean('${{ parameters.continueOnError }}')
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($env:SQL_USERNAME) -and $env:SQL_USERNAME -notlike '$(*') {
+          if ([string]::IsNullOrWhiteSpace($env:SQL_PASSWORD) -or $env:SQL_PASSWORD -like '$(*') {
+            throw 'Pipeline variable SqlPassword is required when SqlUsername is set.'
+          }
+
+          $runnerArgs.Username = $env:SQL_USERNAME
+          $runnerArgs.Password = $env:SQL_PASSWORD
+        }
+
+        & $toolPath @runnerArgs
+    env:
+      SQL_SERVER: $(SqlServerName)
+      SQL_USERNAME: $(SqlUsername)
+      SQL_PASSWORD: $(SqlPassword)
+      SQL_ENCRYPT: $(SqlEncrypt)
+      SQL_TRUST_SERVER_CERTIFICATE: $(SqlTrustServerCertificate)
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish SQL execution evidence
+    condition: always()
+    inputs:
+      targetPath: ${{ parameters.artifactRoot }}
+      artifact: ${{ parameters.artifactName }}
+      publishLocation: pipeline

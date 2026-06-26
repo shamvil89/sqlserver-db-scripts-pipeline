@@ -1,3 +1,5 @@
+name: sql-validation-$(Date:yyyyMMdd)$(Rev:.r)
+
 trigger:
   branches:
     include:
@@ -5,100 +7,44 @@ trigger:
   paths:
     include:
       - azure-pipelines.yml
+      - pipelines/**
       - scripts/**
       - tools/**
+      - docs/**
 
 pr:
   branches:
     include:
       - main
+  paths:
+    include:
+      - azure-pipelines.yml
+      - pipelines/**
+      - scripts/**
+      - tools/**
+      - docs/**
 
-parameters:
-  - name: environmentName
-    displayName: Deployment environment
-    type: string
-    default: dev
-
-  - name: targetDatabases
-    displayName: Target databases, comma separated
-    type: string
-    default: SampleDatabase
-
-  - name: dryRun
-    displayName: Validate scripts without executing SQL
-    type: boolean
-    default: false
-
-  - name: continueOnError
-    displayName: Continue after a script failure
-    type: boolean
-    default: false
+pool:
+  vmImage: windows-latest
 
 variables:
-  SqlEncrypt: true
-  SqlTrustServerCertificate: false
-  ArtifactRoot: '$(Build.ArtifactStagingDirectory)\sql-execution'
+  SqlEncrypt: 'true'
+  SqlTrustServerCertificate: 'false'
 
 stages:
-  - stage: ExecuteSqlScripts
-    displayName: Execute SQL scripts
+  - stage: Validate
+    displayName: Validate SQL scripts
     jobs:
-      - deployment: ExecuteSqlScripts
-        displayName: Execute scripts against SQL Server
-        environment: ${{ parameters.environmentName }}
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - checkout: self
+      - job: ValidateSqlScripts
+        displayName: Dry-run script discovery and artifacts
+        steps:
+          - checkout: self
 
-                - task: PowerShell@2
-                  displayName: Execute SQL scripts and create evidence
-                  inputs:
-                    targetType: inline
-                    script: |
-                      $ErrorActionPreference = 'Stop'
-
-                      New-Item -ItemType Directory -Force -Path '$(ArtifactRoot)' | Out-Null
-
-                      if ([string]::IsNullOrWhiteSpace($env:SQL_SERVER) -or $env:SQL_SERVER -like '$(*') {
-                        throw 'Pipeline variable SqlServerName is required.'
-                      }
-
-                      $databaseList = '${{ parameters.targetDatabases }}'.Split(',') |
-                        ForEach-Object { $_.Trim() } |
-                        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-
-                      if ($databaseList.Count -eq 0) {
-                        throw 'At least one target database must be supplied.'
-                      }
-
-                      $runnerArgs = @{
-                        ServerInstance = $env:SQL_SERVER
-                        Database = $databaseList
-                        ScriptPath = '$(Build.SourcesDirectory)\scripts'
-                        ArtifactPath = '$(ArtifactRoot)'
-                        Encrypt = [System.Convert]::ToBoolean('$(SqlEncrypt)')
-                        TrustServerCertificate = [System.Convert]::ToBoolean('$(SqlTrustServerCertificate)')
-                        DryRun = [System.Convert]::ToBoolean('${{ parameters.dryRun }}')
-                        ContinueOnError = [System.Convert]::ToBoolean('${{ parameters.continueOnError }}')
-                      }
-
-                      if (-not [string]::IsNullOrWhiteSpace($env:SQL_USERNAME) -and $env:SQL_USERNAME -notlike '$(*') {
-                        $runnerArgs.Username = $env:SQL_USERNAME
-                        $runnerArgs.Password = $env:SQL_PASSWORD
-                      }
-
-                      & '$(Build.SourcesDirectory)\tools\Invoke-SqlScriptDeployment.ps1' @runnerArgs
-                  env:
-                    SQL_SERVER: $(SqlServerName)
-                    SQL_USERNAME: $(SqlUsername)
-                    SQL_PASSWORD: $(SqlPassword)
-
-                - task: PublishPipelineArtifact@1
-                  displayName: Publish SQL execution evidence
-                  condition: always()
-                  inputs:
-                    targetPath: '$(ArtifactRoot)'
-                    artifact: sql-execution-evidence
-                    publishLocation: pipeline
+          - template: /pipelines/templates/run-sql-scripts.yml
+            parameters:
+              targetDatabases: ValidationDatabase
+              dryRun: true
+              continueOnError: false
+              artifactName: sql-validation-evidence
+              artifactRoot: '$(Build.ArtifactStagingDirectory)\sql-validation'
+              requireSqlServer: false
